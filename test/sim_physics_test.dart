@@ -371,6 +371,26 @@ void main() {
       }
     });
 
+    test('a floor below the view cannot save the player', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 300, width: 200)],
+        playerBottom: 300,
+        playerX: 100,
+      );
+      // A ledge just below the bottom edge: with a lenient death line the
+      // player would land on it and stand there, unseen, forever.
+      h.sim.platforms.add(
+        Platform(x: 0, y: h.sim.viewBottom + 20, width: 480),
+      );
+      h.runFrames(2);
+      expect(h.sim.status, SimStatus.playing, reason: h.describe());
+
+      hold(h, 240, const InputFrame(right: true));
+
+      expect(h.sim.status, SimStatus.gameOver, reason: h.describe());
+    });
+
     test('falling out of view ends the run', () {
       final h = SimHarness(autoGenerate: false);
       h.useLevel(

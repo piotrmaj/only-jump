@@ -335,7 +335,9 @@ class GameSim {
 
     _streamWorld();
 
-    if (player.top > viewBottom + cfg.gameOverMargin) {
+    // The bottom edge of the view is the death line: once the player's feet
+    // drop below it, there is no floor down there that can save them.
+    if (player.bottom > viewBottom) {
       status = SimStatus.gameOver;
       player.spinJump = false;
       player.spin = 0;

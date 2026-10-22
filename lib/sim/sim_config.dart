@@ -29,7 +29,6 @@ class SimConfig {
     this.platformHeight = 12,
     this.startY = 0,
     this.cameraAnchor = 0.62,
-    this.gameOverMargin = 60,
     this.reachLimit = 140,
     this.safeFloorInterval = 50,
   });
@@ -89,9 +88,6 @@ class SimConfig {
   /// Where the player sits on screen (0 = top, 1 = bottom) once climbing.
   final double cameraAnchor;
 
-  /// Falling this far below the view ends the run.
-  final double gameOverMargin;
-
   /// Max horizontal offset between a floor and the next one, so every floor
   /// is guaranteed to be reachable.
   final double reachLimit;
@@ -141,7 +137,6 @@ class SimConfig {
       platformHeight: platformHeight,
       startY: startY,
       cameraAnchor: cameraAnchor,
-      gameOverMargin: gameOverMargin,
       reachLimit: reachLimit ?? this.reachLimit,
       safeFloorInterval: safeFloorInterval,
     );
