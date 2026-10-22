@@ -1,0 +1,11 @@
+# Small demo recording: run, jump, drift, jump again.
+# Format: <frames> <input tokens, combine with +>
+30 right
+1 right+jump
+20 right
+20 idle
+1 jump
+45 left
+1 left+jump
+30 left
+20 idle
