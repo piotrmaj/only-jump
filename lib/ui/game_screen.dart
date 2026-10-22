@@ -82,6 +82,18 @@ class _GameScreenState extends State<GameScreen> {
             ),
             _Hud(game: _game),
             Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 92),
+                  child: IgnorePointer(child: _ComboHud(game: _game)),
+                ),
+              ),
+            ),
+            Positioned(
               left: 16,
               right: 16,
               bottom: 16,
@@ -145,13 +157,13 @@ class _Hud extends StatelessWidget {
               ),
               const Spacer(),
               ValueListenableBuilder<int>(
-                valueListenable: game.bestFloors,
-                builder: (context, best, _) {
+                valueListenable: game.score,
+                builder: (context, score, _) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '$best',
+                        '$score',
                         style: const TextStyle(
                           fontSize: 26,
                           height: 1,
@@ -160,12 +172,24 @@ class _Hud extends StatelessWidget {
                         ),
                       ),
                       const Text(
-                        'BEST',
+                        'SCORE',
                         style: TextStyle(
                           fontSize: 11,
                           letterSpacing: 2,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF8FD3F4),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ValueListenableBuilder<int>(
+                        valueListenable: game.bestScore,
+                        builder: (context, best, _) => Text(
+                          'BEST $best',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6FB8DE),
+                          ),
                         ),
                       ),
                     ],
@@ -176,6 +200,71 @@ class _Hud extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ComboHud extends StatelessWidget {
+  const _ComboHud({required this.game});
+
+  final OnlyJumpGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    const gold = Color(0xFFFFC63D);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ValueListenableBuilder<int>(
+          valueListenable: game.combo,
+          builder: (context, combo, _) {
+            if (combo < 2) return const SizedBox.shrink();
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: gold.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: gold.withValues(alpha: 0.75),
+                  width: 1.5,
+                ),
+              ),
+              child: Text(
+                'COMBO  $combo',
+                style: const TextStyle(
+                  fontSize: 15,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFFFE7A8),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        ValueListenableBuilder<String?>(
+          valueListenable: game.reward,
+          builder: (context, reward, _) {
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: reward == null
+                  ? const SizedBox.shrink()
+                  : Text(
+                      reward,
+                      key: ValueKey<String>(reward),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFFD166),
+                        shadows: [
+                          Shadow(color: Color(0x99FFB300), blurRadius: 12),
+                        ],
+                      ),
+                    ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -323,6 +412,24 @@ class _GameOverOverlay extends StatelessWidget {
                 builder: (context, floors, _) => Text(
                   '$floors floors',
                   style: const TextStyle(fontSize: 18, color: Color(0xFFB7E4FF)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              ValueListenableBuilder<int>(
+                valueListenable: game.score,
+                builder: (context, score, _) => Text(
+                  '$score points',
+                  style: const TextStyle(fontSize: 18, color: Color(0xFFB7E4FF)),
+                ),
+              ),
+              ValueListenableBuilder<int>(
+                valueListenable: game.bestCombo,
+                builder: (context, combo, _) => Text(
+                  'best combo $combo',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF8FD3F4),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

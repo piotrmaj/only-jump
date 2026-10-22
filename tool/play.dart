@@ -127,6 +127,8 @@ void main(List<String> args) {
   stdout.writeln('seed        $seed');
   stdout.writeln('floors      ${harness.sim.scoreFloor.toStringAsFixed(1)}');
   stdout.writeln('jumps       ${harness.sim.jumps}');
+  stdout.writeln('points      ${harness.sim.points}');
+  stdout.writeln('best combo  ${harness.sim.bestCombo}');
   stdout.writeln('status      ${harness.sim.status.name}');
   if (heights.length > 1) {
     stdout.writeln('climb       ${AsciiView.sparkline(heights)}');

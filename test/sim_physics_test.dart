@@ -417,6 +417,114 @@ void main() {
     });
   });
 
+  group('combos and score', () {
+    /// A full-width ladder from the start floor upward, so landings are
+    /// unambiguous and horizontal aiming is never the reason a test fails.
+    /// The tower is wider than the screen so a sprint jump has room to fly
+    /// without clipping a wall (which would drain the sprint mid-air).
+    SimHarness ladder() {
+      const config = SimConfig(levelWidth: 1000);
+      final start = SimHarness(autoGenerate: false, config: config);
+      final ground = start.sim.groundY;
+      final platforms = <Platform>[
+        for (var i = 0; i < 12; i++)
+          Platform(x: 0, y: ground - i * config.floorSpacing, width: 1000),
+      ];
+      start.useLevel(platforms, playerBottom: ground, playerX: 60);
+      start.runFrames(2);
+      hold(start, 45, const InputFrame(right: true));
+      return start;
+    }
+
+    /// Steps until the player is back on a floor.
+    bool land(SimHarness h, InputFrame input, {int maxFrames = 240}) {
+      for (var i = 0; i < maxFrames; i++) {
+        h.step(input);
+        if (h.sim.player.grounded) return true;
+      }
+      return false;
+    }
+
+    /// Two chained sprint jumps: a six-floor combo in two jumps.
+    SimHarness sixFloorCombo() {
+      final h = ladder();
+      h.step(const InputFrame(right: true, jump: true));
+      expect(land(h, const InputFrame(right: true)), isTrue, reason: h.describe());
+      h.step(const InputFrame(right: true, jump: true));
+      expect(land(h, const InputFrame(right: true)), isTrue, reason: h.describe());
+      return h;
+    }
+
+    test('floors are worth ten points each', () {
+      final h = ladder();
+      expect(h.sim.points, 0);
+
+      h.step(const InputFrame(right: true, jump: true));
+      expect(land(h, const InputFrame(right: true)), isTrue, reason: h.describe());
+      expect(h.sim.comboFloors, 3);
+      expect(h.sim.comboJumps, 1);
+      expect(h.sim.points, 30, reason: h.describe());
+    });
+
+    test('a six-floor chain in two jumps pays floors squared', () {
+      final h = sixFloorCombo();
+      expect(h.sim.comboActive, isTrue);
+      expect(h.sim.comboFloors, 6);
+      expect(h.sim.comboJumps, 2);
+      expect(h.sim.points, 60, reason: h.describe());
+
+      // Drop the sprint, then a single-floor hop ends the combo.
+      hold(h, 25, InputFrame.none);
+      expect(h.sim.sprinting, isFalse, reason: h.describe());
+      h.step(const InputFrame(jump: true));
+      expect(land(h, InputFrame.none), isTrue, reason: h.describe());
+
+      expect(h.sim.comboActive, isFalse);
+      expect(h.sim.bestCombo, 6);
+      expect(h.sim.lastReward, 'Good!');
+      expect(h.sim.lastRewardPoints, 36);
+      expect(h.sim.points, 60 + 10 + 36, reason: h.describe());
+    });
+
+    test('a combo times out after three seconds', () {
+      final h = sixFloorCombo();
+      hold(h, 200, InputFrame.none);
+
+      expect(h.sim.comboActive, isFalse);
+      expect(h.sim.bestCombo, 6);
+      expect(h.sim.lastRewardPoints, 36);
+      expect(h.sim.points, 96, reason: h.describe());
+    });
+
+    test('one skipped floor is not a combo', () {
+      final h = ladder();
+      h.step(const InputFrame(right: true, jump: true));
+      expect(land(h, const InputFrame(right: true)), isTrue, reason: h.describe());
+
+      hold(h, 25, InputFrame.none);
+      h.step(const InputFrame(jump: true));
+      expect(land(h, InputFrame.none), isTrue, reason: h.describe());
+
+      expect(h.sim.comboActive, isFalse);
+      expect(h.sim.bestCombo, 0);
+      expect(h.sim.lastReward, isNull);
+      expect(h.sim.points, 40, reason: h.describe());
+    });
+
+    test('reward names follow the Icy Tower thresholds', () {
+      expect(comboRewardName(4), 'Good!');
+      expect(comboRewardName(7), 'Sweet!');
+      expect(comboRewardName(15), 'Great!');
+      expect(comboRewardName(25), 'Super!');
+      expect(comboRewardName(35), 'Wow!');
+      expect(comboRewardName(50), 'Amazing!');
+      expect(comboRewardName(70), 'Extreme!');
+      expect(comboRewardName(100), 'Fantastic!');
+      expect(comboRewardName(140), 'Splendid!');
+      expect(comboRewardName(200), 'No way!');
+    });
+  });
+
   group('input script', () {
     test('parses segments, comments and combined tokens', () {
       final script = InputScript.parse('''

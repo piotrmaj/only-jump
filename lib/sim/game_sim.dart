@@ -44,6 +44,34 @@ class GameSim {
   /// 0 = walking speed, 1 = full sprint. Builds while running one way.
   double sprintCharge = 0;
 
+  /// Total score: 10 points per floor of height plus completed combo bonuses.
+  int points = 0;
+
+  /// Longest completed combo, in floors.
+  int bestCombo = 0;
+
+  /// Floors spanned by the combo being built right now.
+  int comboFloors = 0;
+
+  /// Jumps that gained at least two floors in the current combo.
+  int comboJumps = 0;
+
+  /// Seconds left to reach the next combo floor.
+  double comboTimeLeft = 0;
+
+  /// Reward banner state for the HUD ("Great!", "Sweet!", ...).
+  String? lastReward;
+  int lastRewardPoints = 0;
+  double rewardTimeLeft = 0;
+
+  bool _comboActive = false;
+  int _comboLastFloor = 0;
+  int _lastLandingFloor = 0;
+  int _highestFloor = 0;
+
+  /// True while a combo chain is alive.
+  bool get comboActive => _comboActive;
+
   /// Turn off for hand-built test levels.
   bool autoGenerate = true;
 
@@ -76,6 +104,18 @@ class GameSim {
     scoreFloor = 0;
     jumps = 0;
     sprintCharge = 0;
+    points = 0;
+    bestCombo = 0;
+    comboFloors = 0;
+    comboJumps = 0;
+    comboTimeLeft = 0;
+    lastReward = null;
+    lastRewardPoints = 0;
+    rewardTimeLeft = 0;
+    _comboActive = false;
+    _comboLastFloor = 0;
+    _lastLandingFloor = 0;
+    _highestFloor = 0;
     status = SimStatus.playing;
     _coyote = 0;
     _jumpBuffer = 0;
@@ -199,7 +239,9 @@ class GameSim {
       player.vy = 0;
       player.grounded = true;
       _coyote = cfg.coyoteTime;
-    } else {
+    } else if (player.vy >= 0) {
+      // Only floors crossed while falling can support the player; otherwise a
+      // rising sprint jump would snap onto the first floor it passes through.
       final support = _supportAt();
       if (support != null) {
         player.setBottom(support.y);
@@ -209,6 +251,8 @@ class GameSim {
       } else {
         player.grounded = false;
       }
+    } else {
+      player.grounded = false;
     }
     // Keep coyote time from the last grounded frame, including walking off.
     if (!player.grounded && wasGrounded) {
@@ -225,6 +269,21 @@ class GameSim {
         scoreFloor,
         (startBottom - player.bottom) / cfg.floorSpacing,
       );
+    }
+
+    // ------------------------------------------------------------------
+    // Combos: reaching a higher floor within the combo window chains the
+    // chain. Pay out when it ends: bonus = floors squared.
+    // ------------------------------------------------------------------
+    if (player.grounded && !wasGrounded) {
+      _onLanding(_floorAt(player.bottom));
+    }
+    if (_comboActive) {
+      comboTimeLeft -= dt;
+      if (comboTimeLeft <= 0) _finishCombo();
+    }
+    if (rewardTimeLeft > 0) {
+      rewardTimeLeft = math.max(0, rewardTimeLeft - dt);
     }
 
     // ------------------------------------------------------------------
@@ -302,6 +361,63 @@ class GameSim {
     );
   }
 
+  /// Floor index for a world bottom coordinate; floor 0 is the start slab.
+  int _floorAt(double bottom) =>
+      ((config.startY + config.playerHeight / 2 - bottom) / config.floorSpacing)
+          .round();
+
+  /// Called on the frame the player touches down. Handles floor points and the
+  /// combo chain rules (Icy Tower: 3 s between floors, a one-floor jump ends
+  /// the chain).
+  void _onLanding(int floor) {
+    final gained = floor - _lastLandingFloor;
+
+    if (_comboActive) {
+      final advanced = floor - _comboLastFloor;
+      if (advanced == 1) {
+        // A single-floor hop finishes the combo.
+        _finishCombo();
+      } else if (advanced >= 2) {
+        comboFloors += advanced;
+        comboJumps++;
+        comboTimeLeft = config.comboWindow;
+        _comboLastFloor = floor;
+      } else if (advanced < 0) {
+        // Falling back down ends the chain.
+        _finishCombo();
+      }
+      // advanced == 0: a straight-up bounce keeps the chain but not the clock.
+    } else if (gained >= 2) {
+      // Skipping at least one floor starts a new chain.
+      _comboActive = true;
+      _comboLastFloor = floor;
+      comboFloors = gained;
+      comboJumps = 1;
+      comboTimeLeft = config.comboWindow;
+    }
+
+    if (floor > _highestFloor) {
+      points += 10 * (floor - _highestFloor);
+      _highestFloor = floor;
+    }
+    _lastLandingFloor = floor;
+  }
+
+  void _finishCombo() {
+    if (_comboActive && comboFloors >= 4 && comboJumps >= 2) {
+      final bonus = comboFloors * comboFloors;
+      points += bonus;
+      bestCombo = math.max(bestCombo, comboFloors);
+      lastReward = comboRewardName(comboFloors);
+      lastRewardPoints = bonus;
+      rewardTimeLeft = 1.6;
+    }
+    _comboActive = false;
+    comboFloors = 0;
+    comboJumps = 0;
+    comboTimeLeft = 0;
+  }
+
   Platform? _supportAt() {
     final b = player.bottom;
     for (final p in platforms) {
@@ -364,4 +480,18 @@ class GameSim {
     platforms.add(platform);
     _prevRowCenter = platform.centerX;
   }
+}
+
+/// Icy Tower's combo reward names, by combo length in floors.
+String comboRewardName(int floors) {
+  if (floors >= 200) return 'No way!';
+  if (floors >= 140) return 'Splendid!';
+  if (floors >= 100) return 'Fantastic!';
+  if (floors >= 70) return 'Extreme!';
+  if (floors >= 50) return 'Amazing!';
+  if (floors >= 35) return 'Wow!';
+  if (floors >= 25) return 'Super!';
+  if (floors >= 15) return 'Great!';
+  if (floors >= 7) return 'Sweet!';
+  return 'Good!';
 }

@@ -23,7 +23,11 @@ class OnlyJumpGame extends FlameGame {
   final GameSim sim;
 
   final ValueNotifier<int> floors = ValueNotifier<int>(0);
-  final ValueNotifier<int> bestFloors = ValueNotifier<int>(0);
+  final ValueNotifier<int> score = ValueNotifier<int>(0);
+  final ValueNotifier<int> bestScore = ValueNotifier<int>(0);
+  final ValueNotifier<int> combo = ValueNotifier<int>(0);
+  final ValueNotifier<int> bestCombo = ValueNotifier<int>(0);
+  final ValueNotifier<String?> reward = ValueNotifier<String?>(null);
   final ValueNotifier<SimStatus> status = ValueNotifier<SimStatus>(
     SimStatus.playing,
   );
@@ -75,7 +79,13 @@ class OnlyJumpGame extends FlameGame {
     }
 
     floors.value = sim.scoreFloor.floor();
-    if (floors.value > bestFloors.value) bestFloors.value = floors.value;
+    score.value = sim.points;
+    if (score.value > bestScore.value) bestScore.value = score.value;
+    combo.value = sim.comboActive ? sim.comboFloors : 0;
+    bestCombo.value = sim.bestCombo;
+    reward.value = sim.rewardTimeLeft > 0
+        ? '${sim.lastReward}  +${sim.lastRewardPoints}'
+        : null;
     if (status.value != sim.status) status.value = sim.status;
   }
 
@@ -105,6 +115,9 @@ class OnlyJumpGame extends FlameGame {
     _jumpHeld = false;
     _jumpQueued = false;
     floors.value = 0;
+    score.value = 0;
+    combo.value = 0;
+    reward.value = null;
     status.value = SimStatus.playing;
   }
 }

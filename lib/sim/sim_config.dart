@@ -23,6 +23,7 @@ class SimConfig {
     this.starInterval = 0.022,
     this.coyoteTime = 0.10,
     this.jumpBufferTime = 0.12,
+    this.comboWindow = 3.0,
     this.playerWidth = 26,
     this.playerHeight = 36,
     this.platformHeight = 12,
@@ -74,6 +75,9 @@ class SimConfig {
 
   /// How long a jump press is remembered before landing.
   final double jumpBufferTime;
+
+  /// Reach each floor within this many seconds to stay in a combo.
+  final double comboWindow;
 
   final double playerWidth;
   final double playerHeight;
@@ -131,6 +135,7 @@ class SimConfig {
       starInterval: starInterval,
       coyoteTime: coyoteTime,
       jumpBufferTime: jumpBufferTime,
+      comboWindow: comboWindow,
       playerWidth: playerWidth,
       playerHeight: playerHeight,
       platformHeight: platformHeight,

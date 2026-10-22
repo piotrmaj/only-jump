@@ -18,6 +18,11 @@ Hold one direction to build a sprint: the character speeds up and glows gold,
 and jumping at full sprint spins up over three floors with a trail of gold
 stars. The start floor and every 50th floor are full-width safe floors.
 
+Every new floor is worth 10 points. Link two or more boosted jumps without
+landing lower to build a combo: a 3-second clock, floors squared as the bonus,
+and Icy Tower reward names from `Good!` to `No way!`. A one-floor hop or a fall
+ends the chain and cashes it in.
+
 ## Install on a Samsung / Android phone
 
 USB or wireless debugging, one command:
@@ -49,8 +54,8 @@ flutter test                       # physics, bots, fuzz, smoke, screenshots
 flutter test test/render_artifacts_test.dart   # regenerate PNGs
 ```
 
-`tool/play.dart` prints floors, jumps, status, an ASCII board and a climb
-sparkline. Screenshots land in `test/artifacts/`.
+`tool/play.dart` prints floors, jumps, points, best combo, status, an ASCII
+board and a climb sparkline. Screenshots land in `test/artifacts/`.
 
 ## Layout
 
@@ -64,4 +69,5 @@ sparkline. Screenshots land in `test/artifacts/`.
 
 ## Status
 
-v0.1: basic climb loop, no art/audio/combo yet. See `PLAN.md` for the roadmap.
+v0.2 in progress: sprint spin jump, safe floors, combos and scoring. See
+`PLAN.md` for the roadmap.

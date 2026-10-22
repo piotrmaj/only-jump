@@ -31,4 +31,27 @@ void main() {
     expect(find.text('JUMP'), findsOneWidget);
     expect(find.text('0'), findsWidgets);
   });
+
+  testWidgets('combo HUD shows the chain, reward and score', (tester) async {
+    await tester.pumpWidget(const OnlyJumpApp());
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final widget = tester.widget<GameWidget<OnlyJumpGame>>(
+      find.byType(GameWidget<OnlyJumpGame>),
+    );
+    final game = widget.game!;
+    // Stop the engine so its update does not overwrite the injected HUD state.
+    game.pauseEngine();
+
+    game.score.value = 960;
+    game.bestScore.value = 1200;
+    game.combo.value = 12;
+    game.reward.value = 'Great!  +144';
+    await tester.pump();
+
+    expect(find.text('COMBO  12'), findsOneWidget);
+    expect(find.text('Great!  +144'), findsOneWidget);
+    expect(find.text('960'), findsOneWidget);
+    expect(find.text('BEST 1200'), findsOneWidget);
+  });
 }

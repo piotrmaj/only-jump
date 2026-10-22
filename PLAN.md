@@ -89,7 +89,8 @@ Rules that keep this honest:
 - Milestone safe floors: the start floor and every 50th floor span the whole
   tower (FDR-003).
 - Wall-jump off the level edges (the signature move).
-- Combo scoring: chained jumps before landing on a lower floor.
+- Combo scoring: chained jumps before landing on a lower floor, 3-second
+  window, floors squared payout and reward names (FDR-004).
 - Floor markers every 10 floors + new floor palette.
 - Tests: sprint jump clears three floors but never four; normal jump still
   clears one; wall-jump apex; combo counter rules.
