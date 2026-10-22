@@ -4,6 +4,7 @@ import 'input_frame.dart';
 import 'platform.dart';
 import 'player_state.dart';
 import 'sim_config.dart';
+import 'trail_star.dart';
 
 enum SimStatus { playing, gameOver }
 
@@ -15,21 +16,33 @@ enum SimStatus { playing, gameOver }
 /// play the exact same game at thousands of steps per second.
 class GameSim {
   GameSim({this.config = const SimConfig(), int seed = 7})
-    : _rng = math.Random(seed) {
+    : _rng = math.Random(seed),
+      _fxRng = math.Random(seed ^ 0x5f3759df) {
     reset();
   }
 
   SimConfig config;
   final math.Random _rng;
 
+  /// Separate stream so cosmetic stars never disturb floor generation.
+  final math.Random _fxRng;
+
   PlayerState player = PlayerState(x: 0, y: 0, width: 26, height: 36);
   final List<Platform> platforms = <Platform>[];
+
+  /// Gold stars shed by the current sprint jump. Cosmetic, but simulated so
+  /// screenshots and tests see the same trail the phone does.
+  final List<TrailStar> stars = <TrailStar>[];
+
   SimStatus status = SimStatus.playing;
 
   /// World Y of the top edge of the screen.
   double cameraTop = 0;
   double scoreFloor = 0;
   int jumps = 0;
+
+  /// 0 = walking speed, 1 = full sprint. Builds while running one way.
+  double sprintCharge = 0;
 
   /// Turn off for hand-built test levels.
   bool autoGenerate = true;
@@ -39,13 +52,19 @@ class GameSim {
   double _topRowY = 0;
   double _prevRowCenter = 0;
   double _groundY = 0;
+  double _starCooldown = 0;
+
+  /// Row 0 is the start slab; each generated row counts up from there.
+  int _rowIndex = 0;
 
   double get groundY => _groundY;
   double get viewBottom => cameraTop + config.viewHeight;
+  bool get sprinting => sprintCharge >= 1;
 
   void reset() {
     final cfg = config;
     platforms.clear();
+    stars.clear();
     player = PlayerState(
       x: cfg.levelWidth / 2,
       y: cfg.startY,
@@ -56,18 +75,24 @@ class GameSim {
     cameraTop = cfg.startY - cfg.viewHeight * cfg.cameraAnchor;
     scoreFloor = 0;
     jumps = 0;
+    sprintCharge = 0;
     status = SimStatus.playing;
     _coyote = 0;
     _jumpBuffer = 0;
+    _starCooldown = 0;
+    _rowIndex = 0;
     _topRowY = _groundY;
     _prevRowCenter = cfg.levelWidth / 2;
 
+    // The start floor is a safe floor: full width, so nobody falls off before
+    // they have learned the controls.
     platforms.add(
       Platform(
-        x: cfg.levelWidth / 2 - 110,
+        x: 0,
         y: _groundY,
-        width: 220,
+        width: cfg.levelWidth,
         height: cfg.platformHeight,
+        safe: true,
       ),
     );
     player.grounded = true;
@@ -90,10 +115,30 @@ class GameSim {
     if (status != SimStatus.playing) return;
     final cfg = config;
 
+    // A jump on this frame uses the sprint the player had when the frame
+    // began, so releasing the direction on the same frame as the jump still
+    // launches the boost.
+    final sprintJump = sprinting;
+
+    // ------------------------------------------------------------------
+    // Sprint charge: holding one direction builds speed
+    // ------------------------------------------------------------------
+    final dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    if (dir != 0 && player.vx != 0 && player.vx.sign != dir) {
+      // Turning around kills the sprint outright; no free boost for tapping
+      // the other way.
+      sprintCharge = 0;
+    } else if (dir != 0 && player.vx.abs() >= cfg.maxMoveSpeed * 0.5) {
+      sprintCharge = math.min(1, sprintCharge + dt / cfg.sprintBuildTime);
+    } else {
+      sprintCharge = math.max(0, sprintCharge - dt / cfg.sprintReleaseTime);
+    }
+    final topSpeed =
+        cfg.maxMoveSpeed + (cfg.sprintTopSpeed - cfg.maxMoveSpeed) * sprintCharge;
+
     // ------------------------------------------------------------------
     // Horizontal movement
     // ------------------------------------------------------------------
-    final dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     if (dir != 0) {
       player.vx += dir * cfg.moveAccel * dt;
       player.facingLeft = dir < 0;
@@ -105,7 +150,7 @@ class GameSim {
         player.vx -= player.vx.sign * friction;
       }
     }
-    player.vx = player.vx.clamp(-cfg.maxMoveSpeed, cfg.maxMoveSpeed).toDouble();
+    player.vx = player.vx.clamp(-topSpeed, topSpeed).toDouble();
 
     // ------------------------------------------------------------------
     // Jump buffering / coyote time
@@ -186,12 +231,42 @@ class GameSim {
     // Jump
     // ------------------------------------------------------------------
     if (_jumpBuffer > 0 && (player.grounded || _coyote > 0)) {
-      player.vy = -cfg.jumpSpeed;
+      final launch = cfg.jumpSpeed * (sprintJump ? cfg.sprintJumpBoost : 1);
+      player.vy = -launch;
       player.grounded = false;
+      player.spinJump = sprintJump;
+      player.spin = 0;
+      if (sprintJump) {
+        // A little burst on take-off sells the "boost" moment.
+        _spawnStar();
+        _spawnStar();
+        _starCooldown = 0;
+      }
       _coyote = 0;
       _jumpBuffer = 0;
       jumps++;
     }
+
+    // ------------------------------------------------------------------
+    // Spin and gold star trail
+    // ------------------------------------------------------------------
+    if (player.spinJump) {
+      if (player.grounded) {
+        player.spinJump = false;
+        player.spin = 0;
+      } else {
+        player.spin = (player.spin + cfg.spinRate * dt) % (2 * math.pi);
+        _starCooldown -= dt;
+        if (_starCooldown <= 0) {
+          _spawnStar();
+          _starCooldown = cfg.starInterval;
+        }
+      }
+    }
+    for (final star in stars) {
+      star.step(dt);
+    }
+    stars.removeWhere((star) => star.expired);
 
     // ------------------------------------------------------------------
     // Camera, world streaming, death
@@ -203,7 +278,28 @@ class GameSim {
 
     if (player.top > viewBottom + cfg.gameOverMargin) {
       status = SimStatus.gameOver;
+      player.spinJump = false;
+      player.spin = 0;
+      stars.clear();
     }
+  }
+
+  /// Shed one gold star behind the spinning player.
+  void _spawnStar() {
+    final rng = _fxRng;
+    final p = player;
+    final back = p.vx == 0 ? 0.0 : p.vx.sign;
+    stars.add(
+      TrailStar(
+        x: p.x - back * (5 + rng.nextDouble() * 6) + (rng.nextDouble() * 2 - 1) * 5,
+        y: p.y + (rng.nextDouble() * 2 - 1) * 9,
+        vx: -p.vx * 0.22 + (rng.nextDouble() * 2 - 1) * 26,
+        vy: -p.vy * 0.10 + (rng.nextDouble() * 2 - 1) * 26 - 18,
+        life: 0.32 + rng.nextDouble() * 0.22,
+        size: 4.0 + rng.nextDouble() * 2.6,
+        phase: rng.nextDouble() * math.pi * 2,
+      ),
+    );
   }
 
   Platform? _supportAt() {
@@ -231,6 +327,23 @@ class GameSim {
   void _addRow(double y) {
     final cfg = config;
     final rng = _rng;
+    _rowIndex++;
+
+    // Milestone floors span the whole tower: a guaranteed landing pad that
+    // gives the player a breather and a runway for the next sprint.
+    if (cfg.safeFloorInterval > 0 && _rowIndex % cfg.safeFloorInterval == 0) {
+      platforms.add(
+        Platform(
+          x: 0,
+          y: y,
+          width: cfg.levelWidth,
+          height: cfg.platformHeight,
+          safe: true,
+        ),
+      );
+      _prevRowCenter = cfg.levelWidth / 2;
+      return;
+    }
 
     // One platform per floor, always within horizontal reach of the previous
     // floor. Extra platforms per row need real reachability planning; until

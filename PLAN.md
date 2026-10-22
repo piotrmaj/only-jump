@@ -84,11 +84,15 @@ Rules that keep this honest:
 ## Roadmap
 
 ### v0.2 — the Icy Tower feel
-- Running jump boost: jumping at full speed goes higher.
+- Sprint jump: holding one direction builds speed, then a jump spins the
+  character three floors high with a gold star trail (FDR-002).
+- Milestone safe floors: the start floor and every 50th floor span the whole
+  tower (FDR-003).
 - Wall-jump off the level edges (the signature move).
 - Combo scoring: chained jumps before landing on a lower floor.
 - Floor markers every 10 floors + new floor palette.
-- Tests: boost apex > standing apex; wall-jump apex; combo counter rules.
+- Tests: sprint jump clears three floors but never four; normal jump still
+  clears one; wall-jump apex; combo counter rules.
 
 ### v0.3 — content and progression
 - High score persistence (`shared_preferences`).

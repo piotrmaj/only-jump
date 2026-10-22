@@ -19,6 +19,12 @@ class PlayerState {
   bool grounded = false;
   bool facingLeft = false;
 
+  /// True while a sprint jump is spinning. Cleared on landing.
+  bool spinJump = false;
+
+  /// Rotation in radians, only meaningful while [spinJump] is true.
+  double spin = 0;
+
   double get left => x - width / 2;
   double get right => x + width / 2;
   double get top => y - height / 2;
@@ -30,5 +36,7 @@ class PlayerState {
     ..vx = vx
     ..vy = vy
     ..grounded = grounded
-    ..facingLeft = facingLeft;
+    ..facingLeft = facingLeft
+    ..spinJump = spinJump
+    ..spin = spin;
 }

@@ -15,6 +15,12 @@ class SimConfig {
     this.maxMoveSpeed = 300,
     this.groundFriction = 2800,
     this.airFriction = 900,
+    this.sprintTopSpeed = 420,
+    this.sprintBuildTime = 0.6,
+    this.sprintReleaseTime = 0.35,
+    this.sprintJumpBoost = 1.45,
+    this.spinRate = 12.5,
+    this.starInterval = 0.022,
     this.coyoteTime = 0.10,
     this.jumpBufferTime = 0.12,
     this.playerWidth = 26,
@@ -24,6 +30,7 @@ class SimConfig {
     this.cameraAnchor = 0.62,
     this.gameOverMargin = 60,
     this.reachLimit = 140,
+    this.safeFloorInterval = 50,
   });
 
   /// Width of a level in world units.
@@ -43,6 +50,24 @@ class SimConfig {
   final double maxMoveSpeed;
   final double groundFriction;
   final double airFriction;
+
+  /// Top horizontal speed once a one-directional run is fully charged.
+  final double sprintTopSpeed;
+
+  /// Seconds of continuous running needed to reach a full sprint.
+  final double sprintBuildTime;
+
+  /// Seconds to bleed off a full sprint when the run is broken.
+  final double sprintReleaseTime;
+
+  /// Vertical launch multiplier for a jump taken at full sprint.
+  final double sprintJumpBoost;
+
+  /// How fast the character spins during a sprint jump, in radians/second.
+  final double spinRate;
+
+  /// Seconds between gold stars shed by a spinning sprint jump.
+  final double starInterval;
 
   /// Grace period to jump after walking off a platform.
   final double coyoteTime;
@@ -67,8 +92,17 @@ class SimConfig {
   /// is guaranteed to be reachable.
   final double reachLimit;
 
+  /// Every Nth floor is a full-width safe floor (the start floor counts).
+  final int safeFloorInterval;
+
   /// Highest rise (world units) a jump can reach, with a safety margin.
   double get jumpReach => (jumpSpeed * jumpSpeed) / (2 * gravity) - 8;
+
+  /// Highest rise a sprint jump can reach, with the same margin.
+  double get sprintJumpReach =>
+      (jumpSpeed * sprintJumpBoost) * (jumpSpeed * sprintJumpBoost) /
+          (2 * gravity) -
+      8;
 
   SimConfig copyWith({
     double? viewHeight,
@@ -89,6 +123,12 @@ class SimConfig {
       maxMoveSpeed: maxMoveSpeed ?? this.maxMoveSpeed,
       groundFriction: groundFriction,
       airFriction: airFriction,
+      sprintTopSpeed: sprintTopSpeed,
+      sprintBuildTime: sprintBuildTime,
+      sprintReleaseTime: sprintReleaseTime,
+      sprintJumpBoost: sprintJumpBoost,
+      spinRate: spinRate,
+      starInterval: starInterval,
       coyoteTime: coyoteTime,
       jumpBufferTime: jumpBufferTime,
       playerWidth: playerWidth,
@@ -98,6 +138,7 @@ class SimConfig {
       cameraAnchor: cameraAnchor,
       gameOverMargin: gameOverMargin,
       reachLimit: reachLimit ?? this.reachLimit,
+      safeFloorInterval: safeFloorInterval,
     );
   }
 }

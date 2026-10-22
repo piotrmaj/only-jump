@@ -5,12 +5,16 @@ class Platform {
     required this.y,
     required this.width,
     this.height = 12,
+    this.safe = false,
   });
 
   final double x;
   final double y;
   final double width;
   final double height;
+
+  /// A milestone floor that spans the whole level, so it cannot be missed.
+  final bool safe;
 
   double get left => x;
   double get right => x + width;
@@ -22,5 +26,5 @@ class Platform {
 
   @override
   String toString() =>
-      'Platform(x: ${x.toStringAsFixed(1)}, y: ${y.toStringAsFixed(1)}, w: ${width.toStringAsFixed(1)})';
+      'Platform(x: ${x.toStringAsFixed(1)}, y: ${y.toStringAsFixed(1)}, w: ${width.toStringAsFixed(1)}${safe ? ', safe' : ''})';
 }

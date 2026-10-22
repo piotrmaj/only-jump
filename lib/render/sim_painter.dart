@@ -29,6 +29,7 @@ class SimPainter extends CustomPainter {
     canvas.scale(scale);
     canvas.translate(0, -snapshot.cameraTop);
     _paintPlatforms(canvas);
+    _paintStars(canvas);
     _paintPlayer(canvas);
     if (showDebug) _paintDebug(canvas);
     canvas.restore();
@@ -75,6 +76,12 @@ class SimPainter extends CustomPainter {
     final top = Paint()..color = const Color(0xFFEAF9FF);
     final shade = Paint()..color = const Color(0xFF3E7FA8);
 
+    final safeBody = Paint()..color = const Color(0xFFA6E2FA);
+    final safeTop = Paint()..color = const Color(0xFFFFE7A8);
+    final safeGlow = Paint()
+      ..color = const Color(0xFFFFC94D).withValues(alpha: 0.20)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
     for (final p in snapshot.platforms) {
       if (p.bottom < snapshot.cameraTop - 8 || p.y > snapshot.viewBottom + 8) {
         continue;
@@ -83,13 +90,16 @@ class SimPainter extends CustomPainter {
         Rect.fromLTWH(p.x, p.y, p.width, p.height),
         const Radius.circular(4),
       );
-      canvas.drawRRect(rrect, body);
+      if (p.safe) {
+        canvas.drawRRect(rrect.inflate(1.5), safeGlow);
+      }
+      canvas.drawRRect(rrect, p.safe ? safeBody : body);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(p.x, p.y, p.width, 3.5),
           const Radius.circular(2),
         ),
-        top,
+        p.safe ? safeTop : top,
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -101,12 +111,79 @@ class SimPainter extends CustomPainter {
     }
   }
 
+  /// Gold stars trailing a spinning sprint jump.
+  void _paintStars(Canvas canvas) {
+    const gold = Color(0xFFFFC63D);
+    const spark = Color(0xFFFFF6C2);
+
+    for (final star in snapshot.stars) {
+      if (star.y < snapshot.cameraTop - 20 ||
+          star.y > snapshot.viewBottom + 20) {
+        continue;
+      }
+      final fade = 1 - star.t;
+      final twinkle = 0.85 + 0.15 * math.sin(star.phase + star.age * 34);
+      final radius = star.size * (0.55 + 0.45 * fade) * twinkle;
+      final center = Offset(star.x, star.y);
+
+      canvas.drawCircle(
+        center,
+        radius * 2.1,
+        Paint()
+          ..color = gold.withValues(alpha: 0.18 * fade)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      canvas.drawPath(
+        _starPath(center, radius, radius * 0.44, star.phase + star.age * 5),
+        Paint()..color = Color.lerp(spark, gold, star.t)!.withValues(alpha: fade),
+      );
+    }
+  }
+
+  static Path _starPath(
+    Offset center,
+    double outer,
+    double inner,
+    double rotation, {
+    int points = 5,
+  }) {
+    final path = Path();
+    for (var i = 0; i < points * 2; i++) {
+      final radius = i.isEven ? outer : inner;
+      final angle = rotation - math.pi / 2 + i * math.pi / points;
+      final offset = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      if (i == 0) {
+        path.moveTo(offset.dx, offset.dy);
+      } else {
+        path.lineTo(offset.dx, offset.dy);
+      }
+    }
+    return path..close();
+  }
+
   void _paintPlayer(Canvas canvas) {
     final p = snapshot.player;
     final left = p.left;
     final bodyRect = Rect.fromLTWH(left, p.top, p.width, p.height);
 
-    // Soft shadow so the jump arc reads better.
+    // Full sprint arms the character: a gold halo reads "jump now" without a
+    // separate charge meter on the HUD.
+    if (snapshot.sprintCharge > 0.05) {
+      canvas.drawCircle(
+        Offset(p.x, p.y),
+        p.width * (0.75 + 0.25 * snapshot.sprintCharge),
+        Paint()
+          ..color = const Color(0xFFFFC63D)
+              .withValues(alpha: 0.10 + 0.20 * snapshot.sprintCharge)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+      );
+    }
+
+    // Soft shadow so the jump arc reads better. Stays flat while the body
+    // spins.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(p.x, p.bottom + 3),
@@ -115,6 +192,13 @@ class SimPainter extends CustomPainter {
       ),
       Paint()..color = Colors.black.withValues(alpha: 0.28),
     );
+
+    canvas.save();
+    if (p.spinJump) {
+      canvas.translate(p.x, p.y);
+      canvas.rotate(p.spin);
+      canvas.translate(-p.x, -p.y);
+    }
 
     final body = RRect.fromRectAndRadius(bodyRect, const Radius.circular(9));
     canvas.drawRRect(
@@ -155,6 +239,8 @@ class SimPainter extends CustomPainter {
     final feetPaint = Paint()..color = const Color(0xFF2C6E96);
     canvas.drawOval(Rect.fromCenter(center: Offset(p.x - 6, feetY), width: 9, height: 4), feetPaint);
     canvas.drawOval(Rect.fromCenter(center: Offset(p.x + 6, feetY), width: 9, height: 4), feetPaint);
+
+    canvas.restore();
   }
 
   void _paintDebug(Canvas canvas) {

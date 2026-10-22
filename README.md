@@ -14,6 +14,10 @@ Controls: on-screen `◀` `▶` and `JUMP` (hold it to keep hopping), tap
 anywhere to jump. Keyboard: arrows / A-D, space / W / up (hold to keep
 hopping), `R` restart, `G` debug overlay.
 
+Hold one direction to build a sprint: the character speeds up and glows gold,
+and jumping at full sprint spins up over three floors with a trail of gold
+stars. The start floor and every 50th floor are full-width safe floors.
+
 ## Install on a Samsung / Android phone
 
 USB or wireless debugging, one command:
@@ -55,6 +59,7 @@ sparkline. Screenshots land in `test/artifacts/`.
 - `lib/game/` — Flame shell and fixed-step loop.
 - `lib/ui/` — HUD, touch controls, game over.
 - `test/` — physics, climb, fuzz, parser, smoke, screenshot artifacts.
+- `docs/fdr/` — feature decision records: what each mechanic does and why.
 - `PLAN.md` — scope, feedback loop, roadmap.
 
 ## Status

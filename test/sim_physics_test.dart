@@ -23,13 +23,20 @@ void main() {
         playerBottom: 300,
       );
       h.runFrames(2);
-      final startX = h.sim.player.x;
 
       hold(h, 30, const InputFrame(right: true));
-      expect(h.sim.player.x, greaterThan(startX + 40));
-      expect(h.sim.player.vx, closeTo(h.sim.config.maxMoveSpeed, 1));
+      expect(
+        h.sim.player.vx,
+        greaterThanOrEqualTo(h.sim.config.maxMoveSpeed),
+        reason: h.describe(),
+      );
+      expect(
+        h.sim.player.vx,
+        lessThanOrEqualTo(h.sim.config.sprintTopSpeed),
+        reason: h.describe(),
+      );
 
-      hold(h, 30, InputFrame.none);
+      hold(h, 60, InputFrame.none);
       expect(h.sim.player.vx, 0);
     });
 
@@ -194,6 +201,146 @@ void main() {
     });
   });
 
+  group('sprint jump', () {
+    /// Charges a sprint on a full-width slab and returns the harness.
+    SimHarness chargeSprint({double playerX = 60}) {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+        playerX: playerX,
+      );
+      h.runFrames(2);
+      hold(h, 45, const InputFrame(right: true));
+      return h;
+    }
+
+    test('holding a direction builds speed above a walk', () {
+      final h = chargeSprint();
+      expect(h.sim.sprintCharge, 1, reason: h.describe());
+      expect(h.sim.sprinting, isTrue);
+      expect(
+        h.sim.player.vx,
+        closeTo(h.sim.config.sprintTopSpeed, 1),
+        reason: h.describe(),
+      );
+
+      // Letting go bleeds the charge off.
+      hold(h, 30, InputFrame.none);
+      expect(h.sim.sprintCharge, 0, reason: h.describe());
+    });
+
+    test('turning around drops the sprint', () {
+      final h = chargeSprint();
+      expect(h.sim.sprinting, isTrue);
+
+      hold(h, 3, const InputFrame(left: true));
+      expect(h.sim.sprintCharge, 0, reason: h.describe());
+    });
+
+    test('a sprint jump clears three floors but never four', () {
+      final h = chargeSprint();
+      final groundY = h.sim.player.y;
+
+      h.step(const InputFrame(right: true, jump: true));
+      var apex = groundY;
+      for (var i = 0; i < 90; i++) {
+        h.step(const InputFrame(right: true));
+        apex = math.min(apex, h.sim.player.y);
+      }
+
+      final rise = groundY - apex;
+      final spacing = h.sim.config.floorSpacing;
+      expect(
+        rise,
+        greaterThan(spacing * 3),
+        reason: 'sprint jump must clear three floors (rise=$rise)\n${h.describe()}',
+      );
+      expect(
+        rise,
+        lessThan(spacing * 4),
+        reason: 'sprint jump must not clear four floors (rise=$rise)\n${h.describe()}',
+      );
+    });
+
+    test('a standing jump stays a normal jump', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+      );
+      h.runFrames(2);
+
+      h.step(const InputFrame(jump: true));
+      expect(h.sim.player.spinJump, isFalse);
+      expect(h.sim.stars, isEmpty);
+    });
+
+    test('sprint jump spins, sheds gold stars, and stops on landing', () {
+      final h = chargeSprint();
+
+      h.step(const InputFrame(jump: true));
+      expect(h.sim.player.spinJump, isTrue);
+      expect(h.sim.player.spin, greaterThan(0));
+
+      hold(h, 6, InputFrame.none);
+      expect(h.sim.player.spin, greaterThan(0));
+      expect(h.sim.stars, isNotEmpty, reason: 'no gold stars while spinning');
+      expect(h.sim.stars.length, lessThan(40));
+
+      var guard = 0;
+      while (!h.sim.player.grounded && guard++ < 180) {
+        h.step(InputFrame.none);
+      }
+      expect(h.sim.player.grounded, isTrue, reason: h.describe());
+      expect(h.sim.player.spinJump, isFalse);
+      expect(h.sim.player.spin, 0);
+
+      hold(h, 60, InputFrame.none);
+      expect(h.sim.stars, isEmpty, reason: 'stars outlived their trail');
+    });
+  });
+
+  group('safe floors', () {
+    test('the start floor spans the whole level', () {
+      final h = SimHarness(seed: 1);
+      final start = h.sim.platforms.firstWhere((p) => p.y == h.sim.groundY);
+      expect(start.safe, isTrue);
+      expect(start.x, 0);
+      expect(start.width, h.sim.config.levelWidth);
+    });
+
+    test('every Nth row is full width and safe', () {
+      final h = SimHarness(
+        seed: 1,
+        config: const SimConfig(safeFloorInterval: 2),
+      );
+      final safe = h.sim.platforms.where((p) => p.safe).toList();
+      expect(safe.length, greaterThan(3));
+
+      for (final p in safe) {
+        expect(p.x, 0);
+        expect(p.width, h.sim.config.levelWidth);
+        final rows = ((h.sim.groundY - p.y) / h.sim.config.floorSpacing).round();
+        expect(rows.isEven, isTrue, reason: 'safe floor off the cadence: $p');
+      }
+
+      final normal = h.sim.platforms.where((p) => !p.safe);
+      expect(normal, isNotEmpty);
+      expect(
+        normal.any((p) => p.width < h.sim.config.levelWidth),
+        isTrue,
+        reason: 'normal floors must stay partial-width',
+      );
+    });
+
+    test('the first screen keeps the default cadence', () {
+      final h = SimHarness(seed: 1);
+      // Only the start slab is safe until floor 50.
+      expect(h.sim.platforms.where((p) => p.safe).length, 1);
+    });
+  });
+
   group('tower', () {
     test('floors only count once the player lands', () {
       final h = SimHarness(autoGenerate: false);
@@ -255,10 +402,15 @@ void main() {
         expect(gap, closeTo(h.sim.config.floorSpacing, 0.01));
 
         final linked = upper.any(
-          (u) => lower.any(
-            (l) => (u.centerX - l.centerX).abs() <=
-                h.sim.config.reachLimit + 0.01,
-          ),
+          (u) => lower.any((l) {
+            // Horizontal distance between the two slabs; a full-width safe
+            // floor overlaps every floor below it.
+            final gap = math.max(
+              0.0,
+              math.max(u.left - l.right, l.left - u.right),
+            );
+            return gap <= h.sim.config.reachLimit + 0.01;
+          }),
         );
         expect(linked, isTrue, reason: 'unreachable floor at y=${sortedRows[i]}');
       }
