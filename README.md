@@ -10,8 +10,9 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quick desktop-ish check
 ```
 
-Controls: on-screen `◀` `▶` and `JUMP`, tap anywhere to jump. Keyboard:
-arrows / A-D, space / W / up, `R` restart, `G` debug overlay.
+Controls: on-screen `◀` `▶` and `JUMP` (hold it to keep hopping), tap
+anywhere to jump. Keyboard: arrows / A-D, space / W / up (hold to keep
+hopping), `R` restart, `G` debug overlay.
 
 ## Install on a Samsung / Android phone
 

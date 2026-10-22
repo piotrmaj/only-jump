@@ -16,8 +16,8 @@ Scope:
 - Procedurally generated ice floors, each reachable from the one below.
 - Camera that only moves up; score = highest floor climbed; best score in
   memory; falling below the screen ends the run and offers a restart.
-- Controls: on-screen left / right / jump (multi-touch), tap to jump, keyboard
-  for desktop testing.
+- Controls: on-screen left / right / jump (multi-touch), hold jump to chain
+  hops, tap to jump, keyboard for desktop testing.
 - Android build, portrait, immersive fullscreen.
 
 Explicitly not in v0.1: art, audio, combo scoring, power-ups, crumbling
@@ -27,7 +27,8 @@ Acceptance criteria (enforced by tests):
 
 - `flutter test` is green.
 - A single jump clears one floor but never two.
-- No double jump; coyote time and jump buffering work.
+- No double jump; coyote time and jump buffering work, and holding jump hops
+  one floor at a time.
 - Generated floors are inside the level and reachable.
 - A greedy bot climbs ≥ 60 floors in 60 simulated seconds on the default
   tuning, and reaches ≥ 15 floors in 20 s runs across seeds 1–8.

@@ -71,8 +71,8 @@ class OnlyJumpGame extends FlameGame {
       }
     } else {
       _accumulator = 0;
+      _jumpQueued = false;
     }
-    _jumpQueued = false;
 
     floors.value = sim.scoreFloor.floor();
     if (floors.value > bestFloors.value) bestFloors.value = floors.value;

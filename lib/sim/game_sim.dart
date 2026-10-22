@@ -36,7 +36,6 @@ class GameSim {
 
   double _coyote = 0;
   double _jumpBuffer = 0;
-  bool _prevJump = false;
   double _topRowY = 0;
   double _prevRowCenter = 0;
   double _groundY = 0;
@@ -60,7 +59,6 @@ class GameSim {
     status = SimStatus.playing;
     _coyote = 0;
     _jumpBuffer = 0;
-    _prevJump = false;
     _topRowY = _groundY;
     _prevRowCenter = cfg.levelWidth / 2;
 
@@ -112,9 +110,10 @@ class GameSim {
     // ------------------------------------------------------------------
     // Jump buffering / coyote time
     // ------------------------------------------------------------------
-    final jumpPressed = input.jump && !_prevJump;
-    _prevJump = input.jump;
-    if (jumpPressed) {
+    // Level-triggered, not edge-triggered: holding jump keeps the request
+    // alive, so the player hops again the moment they touch a floor. A tap
+    // still means one jump, and airborne presses never stack (see below).
+    if (input.jump) {
       _jumpBuffer = cfg.jumpBufferTime;
     } else {
       _jumpBuffer = math.max(0, _jumpBuffer - dt);

@@ -132,6 +132,66 @@ void main() {
       }
       expect(h.sim.jumps, 1, reason: 'buffered jump did not fire\n${h.describe()}');
     });
+
+    test('holding jump hops again as soon as the player lands', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+      );
+      h.runFrames(2);
+
+      h.step(const InputFrame(jump: true));
+      expect(h.sim.jumps, 1);
+
+      var lowestBottom = h.sim.player.bottom;
+      var frames = 0;
+      while (h.sim.jumps == 1 && frames++ < 120) {
+        h.step(const InputFrame(jump: true));
+        lowestBottom = math.max(lowestBottom, h.sim.player.bottom);
+      }
+
+      expect(
+        h.sim.jumps,
+        2,
+        reason: 'holding jump did not hop again after landing\n${h.describe()}',
+      );
+      expect(
+        lowestBottom,
+        closeTo(400, 0.5),
+        reason: 'second hop fired before touching the floor\n${h.describe()}',
+      );
+    });
+
+    test('holding jump keeps hopping, but only on the floor', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+      );
+      h.runFrames(2);
+
+      var hops = 0;
+      for (var i = 0; i < 300; i++) {
+        final jumpsBefore = h.sim.jumps;
+        h.step(const InputFrame(jump: true));
+        if (h.sim.jumps > jumpsBefore) {
+          hops++;
+          // A hop from the floor always starts at platform height.
+          expect(
+            h.sim.player.bottom,
+            closeTo(400, 1),
+            reason: 'hop $hops started mid-air\n${h.describe()}',
+          );
+        }
+      }
+
+      expect(
+        hops,
+        greaterThanOrEqualTo(4),
+        reason: 'holding jump should chain hops (hops=$hops)\n${h.describe()}',
+      );
+    });
   });
 
   group('tower', () {
