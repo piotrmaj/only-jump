@@ -60,7 +60,7 @@ game over now requires an actual jump, so it arrives a little later.
 
 ### 4. Every 50 floors, not every 10
 
-**Decision:** The interval is 50 floors, which is ~4,400 world units at the
+**Decision:** The interval is 50 floors, which is ~6,000 world units at the
 current spacing.
 **Why:** 50 is a real milestone (the HUD number rolls over) and frequent enough
 to give a goal inside a normal run, without turning the tower into a highway of

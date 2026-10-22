@@ -7,18 +7,19 @@ class SimConfig {
   const SimConfig({
     this.levelWidth = 480,
     this.viewHeight = 900,
-    this.floorSpacing = 88,
+    this.floorSpacing = 120,
     this.gravity = 2300,
-    this.jumpSpeed = 800,
+    this.jumpSpeed = 850,
     this.maxFallSpeed = 1500,
     this.moveAccel = 3400,
     this.maxMoveSpeed = 300,
     this.groundFriction = 2800,
     this.airFriction = 900,
     this.sprintTopSpeed = 420,
-    this.sprintBuildTime = 0.6,
-    this.sprintReleaseTime = 0.35,
-    this.sprintJumpBoost = 1.45,
+    this.sprintJumpSpeed = 1850,
+    this.wallBounceMaxSpeed = 600,
+    this.wallBounceBoost = 1.15,
+    this.wallBounceLock = 0.12,
     this.spinRate = 12.5,
     this.starInterval = 0.022,
     this.coyoteTime = 0.10,
@@ -51,17 +52,23 @@ class SimConfig {
   final double groundFriction;
   final double airFriction;
 
-  /// Top horizontal speed once a one-directional run is fully charged.
+  /// Top horizontal speed the player can reach by holding a direction.
   final double sprintTopSpeed;
 
-  /// Seconds of continuous running needed to reach a full sprint.
-  final double sprintBuildTime;
+  /// Horizontal launch speed for a jump taken at [wallBounceMaxSpeed]. The
+  /// launch scales with the player's velocity at take-off, so this is the top
+  /// of the jump range (six floors on the default tower).
+  final double sprintJumpSpeed;
 
-  /// Seconds to bleed off a full sprint when the run is broken.
-  final double sprintReleaseTime;
+  /// Speed ceiling after a wall bounce. Above [sprintTopSpeed], the only way
+  /// to go faster is to bounce off a side wall.
+  final double wallBounceMaxSpeed;
 
-  /// Vertical launch multiplier for a jump taken at full sprint.
-  final double sprintJumpBoost;
+  /// Speed multiplier applied by each wall bounce.
+  final double wallBounceBoost;
+
+  /// Seconds the wall bump owns the horizontal velocity before input returns.
+  final double wallBounceLock;
 
   /// How fast the character spins during a sprint jump, in radians/second.
   final double spinRate;
@@ -95,14 +102,12 @@ class SimConfig {
   /// Every Nth floor is a full-width safe floor (the start floor counts).
   final int safeFloorInterval;
 
-  /// Highest rise (world units) a jump can reach, with a safety margin.
+  /// Highest rise (world units) a normal jump can reach, with a margin.
   double get jumpReach => (jumpSpeed * jumpSpeed) / (2 * gravity) - 8;
 
-  /// Highest rise a sprint jump can reach, with the same margin.
+  /// Highest rise a jump at wall-bounce speed can reach, with the same margin.
   double get sprintJumpReach =>
-      (jumpSpeed * sprintJumpBoost) * (jumpSpeed * sprintJumpBoost) /
-          (2 * gravity) -
-      8;
+      (sprintJumpSpeed * sprintJumpSpeed) / (2 * gravity) - 8;
 
   SimConfig copyWith({
     double? viewHeight,
@@ -124,9 +129,10 @@ class SimConfig {
       groundFriction: groundFriction,
       airFriction: airFriction,
       sprintTopSpeed: sprintTopSpeed,
-      sprintBuildTime: sprintBuildTime,
-      sprintReleaseTime: sprintReleaseTime,
-      sprintJumpBoost: sprintJumpBoost,
+      sprintJumpSpeed: sprintJumpSpeed,
+      wallBounceMaxSpeed: wallBounceMaxSpeed,
+      wallBounceBoost: wallBounceBoost,
+      wallBounceLock: wallBounceLock,
       spinRate: spinRate,
       starInterval: starInterval,
       coyoteTime: coyoteTime,

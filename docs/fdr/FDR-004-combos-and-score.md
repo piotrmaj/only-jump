@@ -9,7 +9,8 @@ Climbing used to produce a single number: floors. Now every floor is worth
 points, and linking jumps without touching a lower floor builds a **combo** that
 pays out a bonus when it ends. The rules are ported from Icy Tower — the game
 behind the 1337-floor-combo world record run — so chaining three-floor sprint
-jumps is the high-skill line, and a safe one-floor hop cashes the chain in.
+jumps and up to six-floor wall-bounced jumps is the high-skill line, and a safe
+one-floor hop cashes the chain in.
 
 ## Behavior
 
@@ -17,7 +18,7 @@ jumps is the high-skill line, and a safe one-floor hop cashes the chain in.
   the player falls.
 - A combo begins when a jump gains **at least two floors**.
 - Each later landing that gains two or more floors adds those floors to the
-  chain. Three-floor sprint jumps add three.
+  chain. A full-run jump adds three; a wall-bounced jump adds up to six.
 - A landing on the **same floor** (a straight-up bounce) neither adds nor ends
   the chain, but it does not reset the timer either.
 - A landing exactly **one floor** higher ends the combo; that is the deliberate
@@ -49,12 +50,13 @@ reward grows super-linearly with it.
 
 ### 2. Combos count floors gained, not jumps
 
-**Decision:** A three-floor sprint jump adds three to the combo, so two boosted
-jumps make a six-floor chain.
+**Decision:** A three-floor full-run jump adds three to the combo and a
+six-floor wall-bounced jump adds six, so two boosted jumps make a six- or
+twelve-floor chain.
 **Why:** The scoreboard unit in Icy Tower is the floor combo, and it makes the
-payout reward height gained rather than the number of inputs. It also gives
-sprint jumps a scoring identity: normal hops can start or end a chain, but only
-boosted jumps build one quickly.
+payout reward height gained rather than the number of inputs. It also gives the
+speed mechanic a scoring identity: normal hops can start or end a chain, but
+only high-velocity jumps build one quickly.
 **Tradeoff:** A player can chain long, slow jump arcs that gain three floors
 each and look less flashy than the same combo built with wall bounces.
 
@@ -119,8 +121,6 @@ it is verified through sim tests and on-device play.
 
 ## Open Questions
 
-- Wall bouncing is the missing piece of the record run: the original rewards
-  reversing at the wall with preserved speed. Should that be the next mechanic?
 - Should floor points be revoked on descent, for closer fidelity to Icy Tower?
 - Should the best score and best combo persist between runs (v0.3)?
 - Is 3 seconds the right window for a phone-sized screen, or does the shorter

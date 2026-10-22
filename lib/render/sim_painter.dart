@@ -171,13 +171,13 @@ class SimPainter extends CustomPainter {
 
     // Full sprint arms the character: a gold halo reads "jump now" without a
     // separate charge meter on the HUD.
-    if (snapshot.sprintCharge > 0.05) {
+    if (snapshot.speedRatio > 0.05) {
       canvas.drawCircle(
         Offset(p.x, p.y),
-        p.width * (0.75 + 0.25 * snapshot.sprintCharge),
+        p.width * (0.75 + 0.25 * snapshot.speedRatio),
         Paint()
           ..color = const Color(0xFFFFC63D)
-              .withValues(alpha: 0.10 + 0.20 * snapshot.sprintCharge)
+              .withValues(alpha: 0.10 + 0.20 * snapshot.speedRatio)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
       );
     }

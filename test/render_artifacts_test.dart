@@ -104,10 +104,10 @@ void main() {
       harness.useLevel(
         const [
           Platform(x: 0, y: 400, width: 480, safe: true),
-          Platform(x: 120, y: 312, width: 150),
-          Platform(x: 280, y: 224, width: 130),
-          Platform(x: 70, y: 136, width: 140),
-          Platform(x: 240, y: 48, width: 120),
+          Platform(x: 120, y: 280, width: 150),
+          Platform(x: 280, y: 160, width: 130),
+          Platform(x: 70, y: 40, width: 140),
+          Platform(x: 240, y: -80, width: 120),
         ],
         playerBottom: 400,
         playerX: 60,

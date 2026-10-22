@@ -14,9 +14,11 @@ Controls: on-screen `◀` `▶` and `JUMP` (hold it to keep hopping), tap
 anywhere to jump. Keyboard: arrows / A-D, space / W / up (hold to keep
 hopping), `R` restart, `G` debug overlay.
 
-Hold one direction to build a sprint: the character speeds up and glows gold,
-and jumping at full sprint spins up over three floors with a trail of gold
-stars. The start floor and every 50th floor are full-width safe floors.
+Hold one direction to run: speed sets jump height. A standing jump clears one
+floor, a full run clears three, and bumping off the side walls keeps and builds
+speed for a launch of up to six floors. Boosted jumps spin the character and
+leave a gold star trail. The start floor and every 50th floor are full-width
+safe floors.
 
 Every new floor is worth 10 points. Link two or more boosted jumps without
 landing lower to build a combo: a 3-second clock, floors squared as the bonus,

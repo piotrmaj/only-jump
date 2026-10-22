@@ -1,121 +1,145 @@
-# FDR-002: Sprint Jump
+# FDR-002: Sprint Jump and Wall Bounce
 
 **Status:** Active
 **Last reviewed:** 2026-10-22
 
 ## Overview
 
-Running in one direction builds momentum. At full sprint the character visibly
-moves faster, glows gold, and a jump from that state launches roughly three
-floors high while the character spins and sheds a trail of gold stars. It is
-the skill reward of the climb: boring floor-by-floor hopping is safe, sprint
-jumping is fast and spectacular.
+Speed is the jump mechanic. Run to build horizontal velocity, then jump: a
+standing hop reaches one floor, a full run reaches three, and a wall bump can
+push the character past the normal running top speed for a six-floor launch.
+The edges of the tower are part of the movement rather than a wall to stop at:
+the character visibly bumps off them, and a well timed bounce builds the speed
+needed for the biggest jumps. A boosted jump spins the character and sheds a
+trail of gold stars.
+
+This replaces the earlier "charge for 0.6 s, then boost" model. The charge
+timer is gone; the only thing that matters is velocity at take-off.
 
 ## Behavior
 
-- Holding left or right continuously builds a sprint in about 0.6 seconds. Top
-  speed rises from 300 to 420 world units per second.
-- The character glows gold as the charge fills; at full sprint the glow is
-  unmistakable. There is no separate meter on the HUD.
-- Jumping at full sprint clears three floors, never four. A standing jump still
-  clears exactly one floor.
-- A sprint jump spins the character through a couple of rotations in the air
-  and leaves a trail of five-pointed gold stars that lag behind and fade out.
-- The spin and stars are cosmetic: no extra air control, no invulnerability, no
-  change to landing.
-- Charge is kept while airborne, so a sprint jump can be chained into another
-  sprint jump if the direction is still held on landing.
-- Releasing the direction drains the charge in about 0.35 seconds. Turning
-  around drops it immediately; running into a wall stops the run and drains it.
-- A jump is boosted if the player was at full sprint when the frame began, so
-  releasing the direction on the same frame as the jump still boosts.
-- Holding JUMP and a direction together turns the climb into a sprint-jump
-  chain (see FDR-001).
-- Stars never appear for normal jumps, and the trail is bounded (a few dozen
-  stars at most) so long chains stay cheap.
+- Holding a direction accelerates the character up to 420 world units per
+  second. There is no sprint meter and no build-up timer.
+- Jump launch speed is a function of horizontal speed when the frame begins. A
+  standing jump is unchanged; releasing the direction on the jump frame still
+  uses the run's speed.
+- The speed-to-height curve is quadratic: about 1 floor from a standstill, 3
+  from a full run, and 6 from a wall-bounced top speed.
+- Hitting the left or right edge reverses horizontal velocity and multiplies
+  it by 1.15, capped at 600. The character bounces visibly instead of sticking.
+- The bump takes over horizontal control for 0.12 s, so a held direction does
+  not instantly cancel the rebound and the player has time to steer away.
+- Holding the direction of travel after a bump keeps the extra speed. Steering
+  back into the wall loses it, so chaining bumps is a skill.
+- The character glows gold when moving faster than a walk. A jump that reaches
+  three or more floors sets `spinJump`: the character spins and sheds gold
+  stars until it lands.
+- A jump span is capped at six floors; no tuning can produce seven.
+- Floors are spaced 120 world units apart (was 88), so fewer floors are on
+  screen and the difference between a hop and a super jump is more visible.
+- Holding JUMP and a direction together turns the climb into a chained
+  super-jump run (FDR-001).
+- Stars never appear for normal jumps, and the trail is bounded so long chains
+  stay cheap.
 
 ## Design Decisions
 
-### 1. A real speed tier, not a hidden timer
+### 1. Velocity is the mechanic, not a stored charge
 
-**Decision:** A sprint raises the character's actual top speed by ~40%, in
-addition to arming the boosted jump.
-**Why:** "It gets more speed" has to be felt in the hands, not inferred from a
-meter. Faster ground coverage is also what makes a sprint chain a different
-route through the tower rather than just a taller jump.
-**Tradeoff:** Effective top speed now depends on a charge the player cannot
-read exactly, and every existing tuning number (reach limit, camera anchor,
-floor spacing) was chosen around walking speed. Sprint overshoots all of them
-on purpose.
+**Decision:** Remove `sprintCharge` and the build/release timers. Compute the
+jump launch directly from `vx` at take-off.
+**Why:** In the reference game the character's speed on the floor is what
+determines jump height; a timer that fills on one platform is invisible and
+does not reward wall movement. Direct velocity means the player can read the
+mechanic from the character's movement and from the gold glow.
+**Tradeoff:** Speed is now sensitive to input: releasing a direction for one
+frame before jumping costs height (the frame-start velocity is used, so there
+is a one-frame grace, but no more). It also makes any future speed modifiers
+(ice, springs, downhill) affect jumps automatically.
 
-### 2. Fixed build and release times
+### 2. A quadratic speed-to-height curve
 
-**Decision:** Charge fills in a fixed ~0.6 s and drains in ~0.35 s, regardless
-of how fast the character is currently moving.
-**Why:** Predictable on touch, deterministic in tests, and easy to explain:
-run for half a second, then jump. It makes the sprint a rhythm rather than a
-physics accident.
-**Tradeoff:** The charge feels binary near the top; 95% and 100% are visually
-and mechanically different but hard to tell apart.
+**Decision:** `launch = jump + (max - jump) * (speed / wallBounceMax)^2`.
+**Why:** A linear curve made a normal run clear four or five floors, which
+turned the tower into an elevator. Squaring keeps walking jumps small, gives a
+full run the familiar three-floor reward, and reserves the six-floor launch for
+the wall-bounce speed range that most players will not reach by accident.
+**Tradeoff:** The top end is steep: between 480 and 600 speed the jump grows
+from four to six floors. Carrying wall-bounce speed becomes disproportionately
+valuable, which is intended but hard to balance against future speed sources.
 
-### 3. Momentum counts in the air too
+### 3. Walls bump automatically, but only carry speed if you steer
 
-**Decision:** Charge builds from continuous one-directional motion whether the
-character is grounded or airborne. It only drains when the run is broken.
-**Why:** It keeps momentum through a jump, which is what lets the hold-to-jump
-control (FDR-001) produce a chain of sprint jumps instead of forcing a
-release-and-run rhythm. It also reads as speed carrying you forward.
-**Tradeoff:** The character can technically build a sprint while airborne,
-which is not physical. It is generous rather than punishing, and the gold halo
-makes the state legible.
+**Decision:** Every wall contact reverses `vx` and multiplies it by 1.15,
+capped at 600. A 0.12 s lock ignores horizontal input after the bump.
+**Why:** On a phone, requiring a frame-perfect reversal at the wall would make
+the mechanic inaccessible. An automatic bump is readable, keeps the character
+moving, and still rewards the Icy Tower technique: hold away from the wall as
+you hit it, then hold the new direction to carry the extra speed. The lock
+prevents holding into the wall from producing jitter.
+**Tradeoff:** Simply running into a wall now speeds the character up, so speed
+is easy to gain and the six-floor ceiling is reachable without precise timing.
+The skill shifts from "bounce correctly" to "aim the resulting jump".
 
-### 4. Three floors per sprint jump
+### 4. Six floors is the hard ceiling
 
-**Decision:** A sprint jump reaches ~292 world units, about 3.3 floors; a
-normal jump reaches ~139, about 1.6 floors.
-**Why:** The reward must change route planning to matter, and three floors is
-a visible "wow" that still leaves the tower difficult. Four floors would turn
-the tower into an elevator.
-**Tradeoff:** One input can skip two floors of platforming. Score is derived
-from height reached, so skipped floors still count — the cost is skipped
-*content* and a much easier climb for players who master the timing, not a
-score penalty.
+**Decision:** Jump span is capped at six floors by capping jump launch, not by
+clamping the landing.
+**Why:** "Up to six platforms at once" needs a clear, testable maximum. Capping
+the launch means every part of the jump (apex, spin, star trail, time in the
+air) agrees with the limit, and a seventh floor is physically impossible.
+**Tradeoff:** At wall-bounce speed the character spends a long time airborne
+(about 1.7 s), which is a large commitment on a screen that only shows eight
+floors.
 
-### 5. Cosmetic effects live in the simulation
+### 5. Larger floor spacing
 
-**Decision:** The spin angle and the gold star trail are simulated state, not
-renderer-only animation. Stars are spawned and aged in world units, with a
-separate random stream so they never disturb floor generation.
+**Decision:** Increase `floorSpacing` from 88 to 120.
+**Why:** With the old spacing, the character was almost two floors tall and the
+tower read as cramped; a normal jump cleared 1.6 floors, so the difference
+between a hop and a super jump was mostly hidden by the platform density. At
+120, a standing jump clears one floor with margin and a full run clears three.
+**Tradeoff:** Fewer floors are visible (about eight on a tall phone), so the
+next landing can be off-screen after a six-floor jump and the camera has less
+room to recover.
+
+### 6. Cosmetic effects live in the simulation
+
+**Decision:** The spin angle, the gold star trail and the gold speed glow are
+simulated/deterministic state, not renderer-only animation. The glow level is
+derived from velocity.
 **Why:** The trail is deterministic, testable, and identical in headless
 screenshots and on the phone. Bugs in the effect show up in tests instead of
 only on a device.
-**Tradeoff:** The frame snapshot carries a particle list, and the simulation
-pays a small per-frame cost for something that is purely visual.
+**Tradeoff:** The frame snapshot carries a particle list and a speed ratio, and
+the simulation pays a small per-frame cost for something that is purely visual.
 
-### 6. Gold halo instead of a charge meter
+### 7. Gold halo instead of a meter
 
-**Decision:** Readiness is shown on the character as a gold glow, not as a HUD
-bar or a number.
+**Decision:** Readiness is shown on the character as a gold glow that ramps with
+speed.
 **Why:** On a phone the player's eyes belong on the character and the next
-floor. A glow also matches the gold star reward, so the visual language is one
+floor. The glow matches the gold star reward, so the visual language is one
 idea: gold means speed.
-**Tradeoff:** The player can tell "charged" from "not charged", but not how
-close they are to full. The halo's opacity ramps with charge, which helps only
-coarsely.
+**Tradeoff:** The halo shows the sprint tier, but not the wall-bounce surplus
+above 420; the biggest jumps are found by feel.
 
 ## Related
 
 - **ADRs:** none yet.
-- **FDRs:** FDR-001 (hold to jump — the two combine into sprint-jump chains),
-  FDR-003 (safe floors — the runway where a sprint can be built).
+- **FDRs:** FDR-001 (hold to jump — the two combine into chained jumps),
+  FDR-003 (safe floors — the runway where speed can be built),
+  FDR-004 (combos — each jump can add one to six floors to a chain).
 
 ## Open Questions
 
-- Should a full sprint survive a wall jump when that mechanic lands, or should
-  the wall reset it like a normal wall bump does today?
-- The spin resets to upright on landing. Is a clean landing more readable than
-  finishing the rotation naturally, at the cost of a possible snap?
-- Should the sprint require the direction to still be held on landing to chain,
-  or is keeping the charge through the air enough (current behavior)?
+- Should a wall bump reset the combo timer or count as reaching a floor? It
+  currently does neither; only landings matter.
+- The 0.12 s bump lock is enough to feel, but is it enough to stop accidental
+  double bumps when the player holds into the wall?
+- Should wall bounces work mid-air at full strength, or only when grounded? The
+  current model is uniform, which lets players steer a jump off a wall.
+- The six-floor launch is close to the full screen height. Is eight visible
+  floors enough, or should the camera zoom out or the anchor move up?
 - Sound, screen shake, or a small camera punch on launch would sell the boost
   further once audio exists.

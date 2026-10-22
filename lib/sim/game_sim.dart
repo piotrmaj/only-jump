@@ -41,8 +41,18 @@ class GameSim {
   double scoreFloor = 0;
   int jumps = 0;
 
-  /// 0 = walking speed, 1 = full sprint. Builds while running one way.
-  double sprintCharge = 0;
+  /// 0 = walking speed, 1 = full sprint. Derived from horizontal velocity.
+  bool get sprinting => player.vx.abs() >= config.sprintTopSpeed - 0.01;
+
+  /// How far into the sprint tier the player is, for the gold glow.
+  double get speedRatio {
+    final span = config.sprintTopSpeed - config.maxMoveSpeed;
+    if (span <= 0) return player.vx == 0 ? 0 : 1;
+    return ((player.vx.abs() - config.maxMoveSpeed) / span).clamp(0.0, 1.0);
+  }
+
+  /// Count of wall bumps so far; handy in traces and tests.
+  int wallBounces = 0;
 
   /// Total score: 10 points per floor of height plus completed combo bonuses.
   int points = 0;
@@ -77,6 +87,7 @@ class GameSim {
 
   double _coyote = 0;
   double _jumpBuffer = 0;
+  double _wallLock = 0;
   double _topRowY = 0;
   double _prevRowCenter = 0;
   double _groundY = 0;
@@ -87,7 +98,6 @@ class GameSim {
 
   double get groundY => _groundY;
   double get viewBottom => cameraTop + config.viewHeight;
-  bool get sprinting => sprintCharge >= 1;
 
   void reset() {
     final cfg = config;
@@ -103,7 +113,8 @@ class GameSim {
     cameraTop = cfg.startY - cfg.viewHeight * cfg.cameraAnchor;
     scoreFloor = 0;
     jumps = 0;
-    sprintCharge = 0;
+    wallBounces = 0;
+    _wallLock = 0;
     points = 0;
     bestCombo = 0;
     comboFloors = 0;
@@ -151,36 +162,52 @@ class GameSim {
     }
   }
 
+  /// Vertical launch speed for a jump taken at [speed] horizontal units/s.
+  ///
+  /// Quadratic on purpose: a walking jump stays at one floor, a full run
+  /// reaches three, and only a wall-bounced top speed reaches six.
+  double jumpLaunchForSpeed(double speed) {
+    final cfg = config;
+    final t = (speed.abs() / cfg.wallBounceMaxSpeed).clamp(0.0, 1.0);
+    return cfg.jumpSpeed + (cfg.sprintJumpSpeed - cfg.jumpSpeed) * t * t;
+  }
+
+  /// Elastic bump off a side wall: reverse the horizontal velocity and add a
+  /// little speed, up to [SimConfig.wallBounceMaxSpeed].
+  void _bounceOffWall(int away) {
+    final impact = player.vx.abs();
+    player.vx = away *
+        math.min(impact * config.wallBounceBoost, config.wallBounceMaxSpeed);
+    player.facingLeft = away < 0;
+    _wallLock = config.wallBounceLock;
+    wallBounces++;
+  }
+
   void step(double dt, InputFrame input) {
     if (status != SimStatus.playing) return;
     final cfg = config;
 
-    // A jump on this frame uses the sprint the player had when the frame
-    // began, so releasing the direction on the same frame as the jump still
-    // launches the boost.
-    final sprintJump = sprinting;
+    // A jump on this frame uses the velocity the player had when the frame
+    // began, so releasing the direction on the jump frame still launches.
+    final takeoffSpeed = player.vx;
 
     // ------------------------------------------------------------------
-    // Sprint charge: holding one direction builds speed
+    // Horizontal movement. Speed is the whole sprint mechanic: it comes from
+    // running, and wall bumps can push it past the running top speed.
     // ------------------------------------------------------------------
     final dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    if (dir != 0 && player.vx != 0 && player.vx.sign != dir) {
-      // Turning around kills the sprint outright; no free boost for tapping
-      // the other way.
-      sprintCharge = 0;
-    } else if (dir != 0 && player.vx.abs() >= cfg.maxMoveSpeed * 0.5) {
-      sprintCharge = math.min(1, sprintCharge + dt / cfg.sprintBuildTime);
-    } else {
-      sprintCharge = math.max(0, sprintCharge - dt / cfg.sprintReleaseTime);
-    }
-    final topSpeed =
-        cfg.maxMoveSpeed + (cfg.sprintTopSpeed - cfg.maxMoveSpeed) * sprintCharge;
-
-    // ------------------------------------------------------------------
-    // Horizontal movement
-    // ------------------------------------------------------------------
-    if (dir != 0) {
-      player.vx += dir * cfg.moveAccel * dt;
+    if (_wallLock > 0) {
+      // The bump owns the direction for a moment so a held input does not
+      // instantly cancel the rebound.
+      _wallLock = math.max(0, _wallLock - dt);
+    } else if (dir != 0) {
+      final along = player.vx * dir;
+      if (along < cfg.sprintTopSpeed) {
+        player.vx += dir * math.min(
+          cfg.moveAccel * dt,
+          cfg.sprintTopSpeed - along,
+        );
+      }
       player.facingLeft = dir < 0;
     } else {
       final friction = (player.grounded ? cfg.groundFriction : cfg.airFriction) * dt;
@@ -190,7 +217,6 @@ class GameSim {
         player.vx -= player.vx.sign * friction;
       }
     }
-    player.vx = player.vx.clamp(-topSpeed, topSpeed).toDouble();
 
     // ------------------------------------------------------------------
     // Jump buffering / coyote time
@@ -214,10 +240,10 @@ class GameSim {
     player.x += player.vx * dt;
     if (player.left < 0) {
       player.x = player.width / 2;
-      player.vx = 0;
+      _bounceOffWall(1);
     } else if (player.right > cfg.levelWidth) {
       player.x = cfg.levelWidth - player.width / 2;
-      player.vx = 0;
+      _bounceOffWall(-1);
     }
 
     player.y += player.vy * dt;
@@ -287,15 +313,17 @@ class GameSim {
     }
 
     // ------------------------------------------------------------------
-    // Jump
+    // Jump: launch speed comes from horizontal velocity at take-off
     // ------------------------------------------------------------------
     if (_jumpBuffer > 0 && (player.grounded || _coyote > 0)) {
-      final launch = cfg.jumpSpeed * (sprintJump ? cfg.sprintJumpBoost : 1);
+      final launch = jumpLaunchForSpeed(takeoffSpeed);
+      final floors =
+          (launch * launch / (2 * cfg.gravity) / cfg.floorSpacing).floor();
       player.vy = -launch;
       player.grounded = false;
-      player.spinJump = sprintJump;
+      player.spinJump = floors >= 3;
       player.spin = 0;
-      if (sprintJump) {
+      if (player.spinJump) {
         // A little burst on take-off sells the "boost" moment.
         _spawnStar();
         _spawnStar();

@@ -40,7 +40,7 @@ void main() {
       expect(h.sim.player.vx, 0);
     });
 
-    test('walls clamp the player inside the level', () {
+    test('walls keep the player inside the level', () {
       final h = SimHarness(autoGenerate: false);
       h.useLevel(
         [const Platform(x: 0, y: 300, width: 480)],
@@ -51,12 +51,31 @@ void main() {
       hold(h, 240, const InputFrame(right: true));
       expect(
         h.sim.player.right,
-        closeTo(h.sim.config.levelWidth, 0.5),
+        lessThanOrEqualTo(h.sim.config.levelWidth + 0.01),
         reason: h.describe(),
+      );
+      expect(
+        h.sim.player.left,
+        greaterThanOrEqualTo(-0.01),
+        reason: h.describe(),
+      );
+      expect(
+        h.sim.wallBounces,
+        greaterThan(0),
+        reason: 'running into a wall should bump, not stick',
       );
 
       hold(h, 480, const InputFrame(left: true));
-      expect(h.sim.player.left, closeTo(0, 0.5), reason: h.describe());
+      expect(
+        h.sim.player.left,
+        greaterThanOrEqualTo(-0.01),
+        reason: h.describe(),
+      );
+      expect(
+        h.sim.player.right,
+        lessThanOrEqualTo(h.sim.config.levelWidth + 0.01),
+        reason: h.describe(),
+      );
     });
   });
 
@@ -202,8 +221,8 @@ void main() {
   });
 
   group('sprint jump', () {
-    /// Charges a sprint on a full-width slab and returns the harness.
-    SimHarness chargeSprint({double playerX = 60}) {
+    /// Runs up to full speed on a full-width slab and returns the harness.
+    SimHarness runUp({double playerX = 60}) {
       final h = SimHarness(autoGenerate: false);
       h.useLevel(
         [const Platform(x: 0, y: 400, width: 480)],
@@ -215,31 +234,78 @@ void main() {
       return h;
     }
 
-    test('holding a direction builds speed above a walk', () {
-      final h = chargeSprint();
-      expect(h.sim.sprintCharge, 1, reason: h.describe());
-      expect(h.sim.sprinting, isTrue);
+    test('running reaches the sprint tier by velocity', () {
+      final h = runUp();
+      expect(h.sim.sprinting, isTrue, reason: h.describe());
+      expect(h.sim.speedRatio, closeTo(1, 0.01));
       expect(
         h.sim.player.vx,
         closeTo(h.sim.config.sprintTopSpeed, 1),
         reason: h.describe(),
       );
 
-      // Letting go bleeds the charge off.
+      // Letting go coasts down; there is no stored charge to bleed.
       hold(h, 30, InputFrame.none);
-      expect(h.sim.sprintCharge, 0, reason: h.describe());
+      expect(h.sim.player.vx, 0, reason: h.describe());
+      expect(h.sim.sprinting, isFalse);
     });
 
-    test('turning around drops the sprint', () {
-      final h = chargeSprint();
+    test('turning around bleeds off the sprint', () {
+      final h = runUp();
       expect(h.sim.sprinting, isTrue);
 
       hold(h, 3, const InputFrame(left: true));
-      expect(h.sim.sprintCharge, 0, reason: h.describe());
+      expect(h.sim.sprinting, isFalse, reason: h.describe());
+    });
+
+    test('a wall bump reverses direction and adds speed', () {
+      final h = SimHarness(
+        autoGenerate: false,
+        config: const SimConfig(levelWidth: 1200),
+      );
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 1200)],
+        playerBottom: 400,
+        playerX: 700,
+      );
+      h.runFrames(2);
+      hold(h, 45, const InputFrame(right: true));
+      expect(h.sim.player.vx, closeTo(420, 1));
+
+      for (var i = 0; i < 90; i++) {
+        h.step(const InputFrame(right: true));
+        if (h.sim.wallBounces > 0) break;
+      }
+
+      expect(h.sim.wallBounces, 1, reason: h.describe());
+      expect(h.sim.player.vx, lessThan(0), reason: h.describe());
+      expect(
+        h.sim.player.vx.abs(),
+        closeTo(420 * h.sim.config.wallBounceBoost, 2),
+        reason: 'a wall bump keeps the speed and adds a little',
+      );
+    });
+
+    test('wall bumps cannot exceed the speed cap', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+        playerX: 460,
+      );
+      h.runFrames(2);
+      h.sim.player.vx = h.sim.config.wallBounceMaxSpeed;
+      h.step(const InputFrame(right: true));
+
+      expect(h.sim.wallBounces, 1, reason: h.describe());
+      expect(
+        h.sim.player.vx.abs(),
+        closeTo(h.sim.config.wallBounceMaxSpeed, 0.01),
+      );
     });
 
     test('a sprint jump clears three floors but never four', () {
-      final h = chargeSprint();
+      final h = runUp();
       final groundY = h.sim.player.y;
 
       h.step(const InputFrame(right: true, jump: true));
@@ -263,6 +329,85 @@ void main() {
       );
     });
 
+    test('chaining wall bumps reaches the top speed', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+        playerX: 60,
+      );
+      h.runFrames(2);
+      hold(h, 45, const InputFrame(right: true));
+
+      var guard = 0;
+      while (h.sim.wallBounces < 1 && guard++ < 120) {
+        h.step(const InputFrame(right: true));
+      }
+      while (h.sim.wallBounces < 2 && guard++ < 400) {
+        h.step(const InputFrame(left: true));
+      }
+      while (h.sim.wallBounces < 3 && guard++ < 400) {
+        h.step(const InputFrame(right: true));
+      }
+
+      expect(h.sim.wallBounces, greaterThanOrEqualTo(3), reason: h.describe());
+      expect(
+        h.sim.player.vx.abs(),
+        closeTo(h.sim.config.wallBounceMaxSpeed, 5),
+        reason: 'three bumps should reach the six-floor speed',
+      );
+    });
+
+    test('a wall-bounced jump clears up to six floors', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+      );
+      h.runFrames(2);
+      h.sim.player.vx = h.sim.config.wallBounceMaxSpeed;
+      final groundY = h.sim.player.y;
+
+      h.step(const InputFrame(right: true, jump: true));
+      var apex = groundY;
+      for (var i = 0; i < 120; i++) {
+        h.step(const InputFrame(right: true));
+        apex = math.min(apex, h.sim.player.y);
+      }
+
+      final rise = groundY - apex;
+      final spacing = h.sim.config.floorSpacing;
+      expect(
+        rise,
+        greaterThan(spacing * 6),
+        reason: 'a wall-bounced jump must clear six floors (rise=$rise)',
+      );
+      expect(
+        rise,
+        lessThan(spacing * 7),
+        reason: 'no jump may clear seven floors (rise=$rise)',
+      );
+    });
+
+    test('jump launch grows with speed and caps at the wall-bounce speed', () {
+      final h = SimHarness();
+      final cfg = h.sim.config;
+
+      expect(h.sim.jumpLaunchForSpeed(0), closeTo(cfg.jumpSpeed, 0.01));
+      expect(
+        h.sim.jumpLaunchForSpeed(cfg.sprintTopSpeed),
+        greaterThan(cfg.jumpSpeed),
+      );
+      expect(
+        h.sim.jumpLaunchForSpeed(cfg.wallBounceMaxSpeed),
+        closeTo(cfg.sprintJumpSpeed, 0.01),
+      );
+      expect(
+        h.sim.jumpLaunchForSpeed(cfg.wallBounceMaxSpeed * 2),
+        closeTo(cfg.sprintJumpSpeed, 0.01),
+      );
+    });
+
     test('a standing jump stays a normal jump', () {
       final h = SimHarness(autoGenerate: false);
       h.useLevel(
@@ -277,7 +422,18 @@ void main() {
     });
 
     test('sprint jump spins, sheds gold stars, and stops on landing', () {
-      final h = chargeSprint();
+      final h = SimHarness(autoGenerate: false);
+      final spacing = h.sim.config.floorSpacing;
+      h.useLevel(
+        [
+          for (var i = 0; i < 5; i++)
+            Platform(x: 0, y: 400 - i * spacing, width: 480),
+        ],
+        playerBottom: 400,
+        playerX: 60,
+      );
+      h.runFrames(2);
+      hold(h, 45, const InputFrame(right: true));
 
       h.step(const InputFrame(jump: true));
       expect(h.sim.player.spinJump, isTrue);

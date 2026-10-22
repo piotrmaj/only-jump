@@ -12,7 +12,7 @@ class SimSnapshot {
     required this.player,
     required this.platforms,
     required this.stars,
-    required this.sprintCharge,
+    required this.speedRatio,
     required this.scoreFloor,
     required this.status,
     required this.jumps,
@@ -26,7 +26,7 @@ class SimSnapshot {
       player: sim.player.copy(),
       platforms: List<Platform>.of(sim.platforms),
       stars: sim.stars.map((star) => star.copy()).toList(growable: false),
-      sprintCharge: sim.sprintCharge,
+      speedRatio: sim.speedRatio,
       scoreFloor: sim.scoreFloor,
       status: sim.status,
       jumps: sim.jumps,
@@ -41,7 +41,7 @@ class SimSnapshot {
   final List<TrailStar> stars;
 
   /// 0 = walking, 1 = full sprint. Drives the gold charge glow.
-  final double sprintCharge;
+  final double speedRatio;
 
   final double scoreFloor;
   final SimStatus status;

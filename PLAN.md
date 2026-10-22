@@ -84,16 +84,16 @@ Rules that keep this honest:
 ## Roadmap
 
 ### v0.2 — the Icy Tower feel
-- Sprint jump: holding one direction builds speed, then a jump spins the
-  character three floors high with a gold star trail (FDR-002).
+- Sprint jump and wall bounce: speed decides jump height, and hitting either
+  edge reverses direction, keeps the speed and adds a little. A full run clears
+  three floors; a wall-bounced launch clears up to six (FDR-002).
 - Milestone safe floors: the start floor and every 50th floor span the whole
   tower (FDR-003).
-- Wall-jump off the level edges (the signature move).
 - Combo scoring: chained jumps before landing on a lower floor, 3-second
   window, floors squared payout and reward names (FDR-004).
 - Floor markers every 10 floors + new floor palette.
 - Tests: sprint jump clears three floors but never four; normal jump still
-  clears one; wall-jump apex; combo counter rules.
+  clears one; wall bump speed cap and six-floor ceiling; combo counter rules.
 
 ### v0.3 — content and progression
 - High score persistence (`shared_preferences`).
@@ -113,7 +113,8 @@ Rules that keep this honest:
 
 ## Tuning notes
 
-- `floorSpacing` 88 vs jump apex ~132 → comfortable single-floor steps.
-- `reachLimit` 150 keeps every next floor reachable and matches the greedy
+- `floorSpacing` 120 vs standing jump apex ~157 → comfortable single-floor
+  steps; a wall-bounced launch reaches ~744, just over six floors.
+- `reachLimit` 140 keeps every next floor reachable and matches the greedy
   bot's horizontal reach.
 - `cameraAnchor` 0.62 gives room to see the next floors and the drop below.
