@@ -32,10 +32,12 @@ Ask the user for exactly one of these — never guess the address:
 powershell -ExecutionPolicy Bypass -File tool/install-device.ps1 -Pair 192.168.0.23:37123 -Code 123456
 ```
 
-Pairing is needed once per network. Later runs only need the quick path; the
-script caches the wireless endpoint in `android/local.properties`
-(`phoneAdb=host:port`) and the serial can be set with
-`phoneAdbSerial=<serial>`.
+Pairing is needed once per network. If `adb devices` already lists the phone,
+skip pairing entirely. When pairing, the port changes every time the dialog
+opens — always use the port currently displayed, and pair quickly before the
+dialog closes. Later runs only need the quick path; the script caches the
+wireless endpoint in `android/local.properties` (`phoneAdb=host:port`) and the
+serial can be set with `phoneAdbSerial=<serial>`.
 
 Run without `-Pair` after pairing. `-ListDevices` shows what adb sees.
 

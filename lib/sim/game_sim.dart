@@ -172,6 +172,18 @@ class GameSim {
     }
 
     // ------------------------------------------------------------------
+    // Score: only advances while standing on a floor, before a buffered jump
+    // can launch the player again. A jump must not tick the counter mid-air.
+    // ------------------------------------------------------------------
+    if (player.grounded) {
+      final startBottom = cfg.startY + cfg.playerHeight / 2;
+      scoreFloor = math.max(
+        scoreFloor,
+        (startBottom - player.bottom) / cfg.floorSpacing,
+      );
+    }
+
+    // ------------------------------------------------------------------
     // Jump
     // ------------------------------------------------------------------
     if (_jumpBuffer > 0 && (player.grounded || _coyote > 0)) {
@@ -183,10 +195,8 @@ class GameSim {
     }
 
     // ------------------------------------------------------------------
-    // Score, camera, world streaming, death
+    // Camera, world streaming, death
     // ------------------------------------------------------------------
-    scoreFloor = math.max(scoreFloor, (cfg.startY - player.y) / cfg.floorSpacing);
-
     final target = player.y - cfg.viewHeight * cfg.cameraAnchor;
     if (target < cameraTop) cameraTop = target;
 
@@ -223,23 +233,23 @@ class GameSim {
     final cfg = config;
     final rng = _rng;
 
-    final width = 76 + rng.nextDouble() * 64;
+    // One platform per floor, always within horizontal reach of the previous
+    // floor. Extra platforms per row need real reachability planning; until
+    // then they could strand the player with no way up.
+    final width = 90 + rng.nextDouble() * 80;
     final maxX = cfg.levelWidth - width - 10;
     final jitter = (rng.nextDouble() * 2 - 1) * cfg.reachLimit;
     final x = (_prevRowCenter + jitter - width / 2)
         .clamp(10.0, math.max(10.0, maxX))
         .toDouble();
-    final main = Platform(x: x, y: y, width: width, height: cfg.platformHeight);
-    platforms.add(main);
-    _prevRowCenter = main.centerX;
 
-    // Sometimes a bonus platform on the same floor.
-    if (rng.nextDouble() < 0.45) {
-      final w2 = 54 + rng.nextDouble() * 50;
-      final x2 = 10 + rng.nextDouble() * (cfg.levelWidth - w2 - 20);
-      if ((x2 + w2 / 2 - main.centerX).abs() > (width + w2) / 2 + 30) {
-        platforms.add(Platform(x: x2, y: y, width: w2, height: cfg.platformHeight));
-      }
-    }
+    final platform = Platform(
+      x: x,
+      y: y,
+      width: width,
+      height: cfg.platformHeight,
+    );
+    platforms.add(platform);
+    _prevRowCenter = platform.centerX;
   }
 }

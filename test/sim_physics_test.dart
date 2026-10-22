@@ -135,6 +135,25 @@ void main() {
   });
 
   group('tower', () {
+    test('floors only count once the player lands', () {
+      final h = SimHarness(autoGenerate: false);
+      h.useLevel(
+        [const Platform(x: 0, y: 400, width: 480)],
+        playerBottom: 400,
+      );
+      h.runFrames(2);
+      expect(h.sim.scoreFloor, 0);
+
+      h.step(const InputFrame(jump: true));
+      var apex = h.sim.player.y;
+      for (var i = 0; i < 20; i++) {
+        h.step(InputFrame.none);
+        apex = math.min(apex, h.sim.player.y);
+      }
+      expect(h.sim.scoreFloor, 0, reason: 'score moved while airborne');
+      expect(h.sim.player.y, lessThan(apex + 20));
+    });
+
     test('camera never moves down', () {
       final h = SimHarness(seed: 5);
       var previous = h.sim.cameraTop;

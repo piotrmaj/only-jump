@@ -74,12 +74,10 @@ void main() {
     expect(h.sim.player.y, frozenY, reason: 'simulation ran after game over');
   });
 
-  test('score is the high-water mark of the climb', () {
+  test('score is the high-water mark of landed floors', () {
     final h = SimHarness(seed: 9);
     h.runSeconds(30, GreedyBot());
-    final currentHeight =
-        (h.sim.config.startY - h.sim.player.y) / h.sim.config.floorSpacing;
-    expect(h.sim.scoreFloor + 1e-9, greaterThanOrEqualTo(currentHeight));
+    expect(h.sim.scoreFloor, greaterThan(20));
     expect(h.snapshot.floors, h.sim.scoreFloor.floor());
   });
 }

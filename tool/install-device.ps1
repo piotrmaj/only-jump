@@ -37,7 +37,7 @@ param(
   [int]$LaunchWaitSeconds = 3
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -133,10 +133,18 @@ if ($Pair) {
   $pairOutput = (& $adb pair $Pair $Code 2>&1 | Out-String)
   Write-Host $pairOutput.Trim()
   if ($pairOutput -notmatch 'Successfully paired') {
-    Stop-WithError 'adb pair failed.' @(
+    $hints = @(
       'Check the IP:port and code on the "Pair device with pairing code" screen.',
+      'The pairing port changes every time that screen opens; reopen it for a fresh port.',
       'The phone and this PC must be on the same Wi-Fi network.'
     )
+    if ($pairOutput -match 'protocol fault') {
+      $hints = @(
+        'The pairing dialog was probably closed or the port expired.',
+        'Reopen "Pair device with pairing code" and use the new port + code.'
+      ) + $hints
+    }
+    Stop-WithError 'adb pair failed.' $hints
   }
   Write-Ok 'Paired.'
 }
@@ -276,9 +284,9 @@ if ($Screenshot) {
   if ($shotDir) { New-Item -ItemType Directory -Force -Path $shotDir | Out-Null }
 
   $remote = '/sdcard/only_jump_screen.png'
-  & $adb -s $target shell screencap -p $remote | Out-Null
-  & $adb -s $target pull $remote $shotPath | Out-Null
-  & $adb -s $target shell rm -f $remote | Out-Null
+  & $adb -s $target shell screencap -p $remote 2>&1 | Out-Null
+  & $adb -s $target pull $remote $shotPath 2>&1 | Out-Null
+  & $adb -s $target shell rm -f $remote 2>&1 | Out-Null
 
   if (Test-Path $shotPath) {
     Write-Ok "Screenshot saved: $shotPath"
@@ -290,7 +298,7 @@ if ($Screenshot) {
 if ($Logs) {
   Write-Host ''
   Write-Host '--- flutter logs (last 120 lines) ---'
-  & $adb -s $target logcat -d -t 400 -s flutter | Select-Object -Last 120 | ForEach-Object { Write-Host $_ }
+  & $adb -s $target logcat -d -t 400 -s flutter 2>$null | Select-Object -Last 120 | ForEach-Object { Write-Host $_ }
 }
 
 exit 0
